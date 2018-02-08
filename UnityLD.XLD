@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <LDExchangeFile>
-	<fileHeader company="Schneider Automation" product="Unity Pro XL V7.0 - 120823C" dateTime="date_and_time#2018-2-8-14:22:22" content="Fichier source LD" DTDVersion="41"></fileHeader>
+	<fileHeader company="Schneider Automation" product="Unity Pro XL V7.0 - 120823C" dateTime="date_and_time#2018-2-8-14:25:53" content="Fichier source LD" DTDVersion="41"></fileHeader>
 	<contentHeader name="Projet" version="0.0.000"></contentHeader>
 	<program>
 		<identProgram name="test" type="section" task="MAST"></identProgram>
@@ -20,7 +20,23 @@
 					<emptyCell nbCells="10"></emptyCell>
 				</typeLine>
 				<typeLine>
-					<emptyLine nbRows="98"></emptyLine>
+					<emptyLine nbRows="1"></emptyLine>
+				</typeLine>
+				<typeLine>
+					<shortCircuit>
+						<VLink></VLink>
+						<contact typeContact="openContact" contactVariableName="%M2"></contact>
+					</shortCircuit>
+					<contact typeContact="closedContact" contactVariableName="%M3"></contact>
+					<HLink nbCells="8"></HLink>
+					<coil typeCoil="coil" coilVariableName="%M4"></coil>
+				</typeLine>
+				<typeLine>
+					<contact typeContact="openContact" contactVariableName="%M4"></contact>
+					<emptyCell nbCells="10"></emptyCell>
+				</typeLine>
+				<typeLine>
+					<emptyLine nbRows="95"></emptyLine>
 				</typeLine>
 			</networkLD>
 		</LDSource>
