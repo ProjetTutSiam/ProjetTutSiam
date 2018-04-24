@@ -16,6 +16,15 @@
 					<coil typeCoil="coil" coilVariableName="%M1"></coil>
 				</typeLine>
 				<typeLine>
+					<shortCircuit>
+						<VLink></VLink>
+						<contact typeContact="openContact" contactVariableName="%i0.2.0"></contact>
+					</shortCircuit>
+					<contact typeContact="closedContact" contactVariableName="%I0.2.1"></contact>
+					<HLink nbCells="8"></HLink>
+					<coil typeCoil="coil" coilVariableName="%M1"></coil>
+				</typeLine>
+				<typeLine>
 					<contact typeContact="openContact" contactVariableName="%M1"></contact>
 					<emptyCell nbCells="10"></emptyCell>
 				</typeLine>
