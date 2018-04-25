@@ -1,0 +1,839 @@
+'CR6 chambres automatiques : Picarro_CO2_CH4
+
+'Created by BURBAN Romain
+
+'Programme pilote de 6 chambres automatiques
+
+'-----------------------------------declaration de variables------------------------------------
+
+'variables liees au Picarro
+Const nbmeasure = 10
+Public Picarro(nbmeasure,1)
+Public CavityPressure_hPa
+Dim Picarro_String As String * 1000
+Dim NBR As Float
+
+'variables statut de la centrale
+Public rtime(9)
+Public Batt_Volt
+Public PTemp
+
+'Variables de deplacement et statut des chambres
+Public pos_1,pos_Calib
+Public T_vanne
+Public Vanne(9,3)
+Public Ordre(6)
+Public Operation(2)
+Public i,j
+Public C_ch,C_o,C_case,C_ScanPicarro
+Public D_Purge
+Public Dh,Dmin,Dsec
+Public Fh,Fmin,Fsec
+Public T_Fsec
+Public ScanOn As Boolean
+Dim PurgeOk As Boolean
+Dim CalibOn As Boolean
+Dim RHomeOn As Boolean
+
+'Temps de purge (s) = Temps_Tic_Purge * Nb_Tic_Purge
+Const Nb_Tic_Purge = 6
+Const Temps_Tic_Purge = 10 'en seconde
+
+'Variables de choix utilisateur
+Public Cycle
+Public Marche
+Public Chambres(6)
+Public nbChambre
+Public choixscan
+Public Calib
+Public ScanCalib
+Public reboot
+Public transport
+Public V_etalon
+Public CaseOk
+Dim transportOk As Boolean
+
+'Tampons et affichage variables utilisateur
+Public T_Cycle
+Public T_choixscan
+Public T_Calib
+Public T_ScanCalib
+Public T_V_etalon
+Public T_Ordre(6)
+
+Public A_Cycle As String * 50
+Public A_choixscan
+Public A_Calib As String * 50
+Public A_ScanCalib As String * 50
+
+'Variables sonde SMT100
+Public SMT100(6)
+Dim SMT100_String As String *500
+
+'Variable commande/reception chambre
+Public Port
+Public Ch_Pressure_hPa
+Public Ch_Pressure_kPa
+Public Ch_Temp
+Public A_Ch_Close,A_Ch_Open
+Dim Ch_Close_String As String * 100
+Dim Ch_Open_String As String * 100
+Dim Fan_On_String As String * 100
+Dim Fan_Off_String As String * 100
+Dim Pressure_String As String * 100
+Dim Temp_String As String * 100
+
+'-----------------------------------Declarration des DateTime----------------------------------
+
+Alias rtime(1) = Year
+Alias rtime(2) = Month
+Alias rtime(3) = DOY
+Alias rtime(4) = Hour
+Alias rtime(5) = Minute
+Alias rtime(6) = Second
+Alias rtime(7) = uSecond
+Alias rtime(8) = WeekDay
+Alias rtime(9) = Day_of_Year
+
+'------------------------------------Alias des parametres mesures------------------------------
+
+'Alias Picarro
+Alias Picarro (1) = Time
+Alias Picarro (2) = CavityPressure_Torr
+Alias Picarro (3) = CavityTemp
+Alias Picarro (4) = H2O
+Alias Picarro (5) = _13CO2
+Alias Picarro (6) = _13CH4
+Alias Picarro (7) = CH4
+Alias Picarro (8) = CO2
+Alias Picarro (9) = ymd
+Alias Picarro (10) = hms
+
+'Alias sonde SMT100
+Alias SMT100(4) = H_sol
+Alias SMT100(5) = Temp_sol
+
+'Alias correspondance Vanne
+Alias Vanne(1,1) = VanneActu
+Alias Vanne(2,1) = Chambre_1
+Alias Vanne(3,1) = Chambre_2
+Alias Vanne(4,1) = Chambre_3
+Alias Vanne(5,1) = Chambre_4
+Alias Vanne(6,1) = Chambre_5
+Alias Vanne(7,1) = Chambre_6
+Alias Vanne(8,1) = Zero
+Alias Vanne(9,1) = Etalon
+
+'Alias id de Vanne
+Alias Vanne(2,2) = id_ch1
+Alias Vanne(3,2) = id_ch2
+Alias Vanne(4,2) = id_ch3
+Alias Vanne(5,2) = id_ch4
+Alias Vanne(6,2) = id_ch5
+Alias Vanne(7,2) = id_ch6
+Alias Vanne(8,2) = id_Zero
+Alias Vanne(9,2) = id_Etalon
+
+'Alias voyants lumineux
+Alias Vanne(2,3) = led_1
+Alias Vanne(3,3) = led_2
+Alias Vanne(4,3) = led_3
+Alias Vanne(5,3) = led_4
+Alias Vanne(6,3) = led_5
+Alias Vanne(7,3) = led_6
+Alias Vanne(8,3) = led_Zero_Etalon
+
+
+'Alias numero de Chambre
+Alias Chambres(1,1) = ch_1
+Alias Chambres(2,1) = ch_2
+Alias Chambres(3,1) = ch_3
+Alias Chambres(4,1) = ch_4
+Alias Chambres(5,1) = ch_5
+Alias Chambres(6,1) = ch_6
+
+'Alias Operation
+Alias Operation(1) = Purge
+Alias Operation(2) = Mesure
+
+'----------------------------Declaration des units de chaque variable mesuree-------------------
+
+'Donnees Picarro
+Units CavityPressure_Torr = Torr
+Units CavityTemp = Deg C
+Units H2O = % water
+Units CO2 = PPM
+Units CH4 = PPM
+Units _13CO2 = Per Mil
+Units _13CH4 = Per Mil
+
+'Donnees SMT100
+Units H_sol = % water
+Units Temp_sol = Deg C
+
+'Donnees Chambres
+Units Ch_Pressure_hPa = hPa
+Units Ch_Temp = Deg C
+
+'-----------------------------Declaration des Table ---------------------------------------
+
+'Table Resultats
+DataTable (Resultats,1,-1)
+  Sample(1,VanneActu,string)
+  Sample(1,T_V_etalon,IEEE4)
+  Sample(1,Ch_Pressure_hPa,IEEE4)
+  Sample(1,Ch_Pressure_kPa,IEEE4)
+  Sample(1,Ch_Temp,IEEE4)
+  Sample(1,Temp_sol,IEEE4)
+  Sample(1,H_sol,IEEE4)
+  Sample (1,CavityPressure_Torr,IEEE4)
+  Sample (1,CavityPressure_hPa,IEEE4)
+  Sample (1,CavityTemp,IEEE4)
+  Sample (1,H2O,IEEE4)
+  Sample (1,CO2 ,IEEE4)
+  Sample (1,CH4,IEEE4)
+  Sample (1,_13CH4,IEEE4)
+  Sample (1,_13CO2,IEEE4)
+EndTable
+
+'--------------------------------------Instructions repetees---------------------------------------
+
+Sub initialisation
+
+  RealTime(rtime)
+
+  VanneActu = 1
+  Port = 32
+  Purge = 0
+  Mesure = 0
+
+  ScanOn = false
+  CalibOn = false
+  RHomeOn = false
+  PurgeOk = false
+  transportOk = false
+
+  pos_1 = 1
+  C_o = 1
+  C_ScanPicarro = 0
+  choixscan = 1
+  ScanCalib = 1
+
+  A_Ch_Close = 1
+  A_Ch_Open = 1
+  Ch_Open_String = NAN
+  Fan_On_String = NAN
+  Fan_Off_String = NAN
+
+  Dh = "00"
+  Dmin = "00"
+  Dsec = "00"
+  Fh = "00"
+  Fmin = "00"
+  Fsec = "00"
+
+  id_ch1 = 1
+  id_ch2 = 2
+  id_ch3 = 3
+  id_ch4 = 4
+  id_ch5 = 5
+  id_ch6 = 6
+  id_Zero = 7
+  id_Etalon = 8
+
+'Partie affichage RTMC
+  For i = 2 To 9
+    Vanne(i,3) = 0
+  Next i
+  led_1 = -1
+
+
+EndSub
+
+'Instruction permettant de revenir a la position home (1)
+'Fait la difference entre le nombre de pas necessaires de pos actuelle a la pos 1 (vanne)
+'pos_1 donne alors le nombre de pas a faire pour retourner en pos 1
+Sub RHome
+
+  RHomeOn = true
+
+  If VanneActu <> 1 Then
+
+    For j = 2 To 9
+      Vanne(j,3) = 0
+    Next j
+
+    pos_1 = 9 - VanneActu
+
+    For j = 1 To pos_1
+      Call PasVanne
+    Next j
+  EndIf
+
+  RHomeOn = false
+  pos_1 = 1
+  
+'Partie affichage RTMC
+  VanneActu = 1
+  led_1 = -1
+
+EndSub
+
+'Instruction qui permet de purger le systeme.
+Sub Purges
+
+  Do
+
+    RealTime(rtime)
+
+    D_Purge = Second/10
+
+    If D_Purge = 0 OR D_Purge = 1 OR D_Purge = 2 OR D_Purge = 3 OR D_Purge = 4 OR D_Purge = 5 Then
+
+      Call DureeScan
+
+      Purge = -1
+
+      Scan(Temps_Tic_Purge,sec,0,Nb_Tic_Purge)
+
+        If Marche = 0 Then
+          Exit Scan
+        EndIf
+
+        PanelTemp (PTemp,15000)
+        Battery (Batt_Volt)
+        RealTime(rtime)
+      NextScan
+
+      Exit Do
+
+    EndIf
+
+  Loop
+
+EndSub
+
+'On recupere les donnees dans Picarro_String grace a SerialInRecord
+'La chaine de caractres obtenue est ensuite decoupee avec SplitStr et chaque element est stocke
+'dans la variable Picarro().
+'Un scan dure 5 minutes (10*30/60 = 5)
+Sub MesurePicarro
+
+  Scan(10,sec,0,30)
+    If Marche = 0 Then
+      ExitScan
+    EndIf
+
+    PanelTemp (PTemp,15000)
+    Battery (Batt_Volt)
+    RealTime(rtime)
+
+    'Recuperation donnees Picarro
+    SerialInRecord(ComC1,Picarro_String,&h0D0A,500,0,NBR,00)
+    SplitStr(Picarro(),Picarro_String,";",nbmeasure,0)
+
+    'conversion Torr => hPa
+    CavityPressure_hPa = CavityPressure_Torr * 1.33322
+
+    CallTable Resultats
+  NextScan
+
+
+
+EndSub
+
+'scan en fonction du temps de scrutation selectionne
+'Possibilites de choix : 5, 10, 15, 20, 25, 30, 35, 40, 45 minutes
+'Chaque scan commence par une purge.Chaque session de mesure du 5 minutes.
+'La boucle While permet de repeter les mesures autant de fois que necessaire
+'pour atteindre un temps de scrutation egale au temps selectionne par l'utilisateur.
+' ex : on repete 5 fois la boucle pour obtenir un temps total de scrutation de 25 minutes.
+Sub TempsScan
+
+  ScanOn = true
+
+  If Marche = -1 Then
+
+    Call Purges
+
+  EndIf
+
+  Purge = 0
+  Mesure = -1
+
+  While C_ScanPicarro <> T_choixscan AND Marche = -1
+
+    Call MesureSMT100
+    Call MesureChambre
+    Call MesurePicarro
+
+    C_ScanPicarro = C_ScanPicarro + 1
+
+  Wend
+
+'Partie affichage RTMC
+  C_ScanPicarro = 0
+  Mesure = 0
+  ScanOn = false
+  Dh = "00"
+  Dmin = "00"
+  Dsec = "00"
+  Fh = "00"
+  Fmin = "00"
+  Fsec = "00"
+
+EndSub
+
+'Mesure des sondes SMT100
+'SDI12Recorder place la chaine de caractere recu dans la variable SMT100_String
+'SplitStr decoupe cette chaine et stocke chaque element dans le tableau SMT100 de taille (6)
+Sub MesureSMT100
+
+  Scan(1,sec,0,1)
+    SDI12Recorder (SMT100_String,C3,VanneActu,"M!",1,0)
+    SplitStr(SMT100(1),SMT100_String,"+",5,0)
+  NextScan
+
+EndSub
+
+'Passage a la position suivante de la vanne
+'On ouvre le port SW12(1) pour envoyer une impulsion a la vanne qui avance alors d'un pas.
+'La second partie gere l'allumage des voyants relatifs a la vanne. A chaque pas l'ensemble
+'des voyants s'eteingnent puis le voyant de la position actuelle s'allume.
+Sub PasVanne
+
+  SW12(1,true)
+  Delay(0,40,msec)
+  SW12(1,false)
+  Delay(0,1,sec)
+
+  VanneActu  = VanneActu+1
+  PurgeOk = false
+
+'Partie affichage RTMC
+  
+  If RHomeOn = false Then
+
+    For j = 2 To 9
+      Vanne(j,3) = 0
+    Next j
+
+    If Ordre(C_ch+1) = VanneActu AND CalibOn = false Then
+      Vanne(VanneActu+1,3) = -1
+    ElseIf (VanneActu = 7 OR VanneActu = 8) AND CalibOn = true
+      led_Zero_Etalon = -1
+    EndIf
+
+  EndIf
+
+EndSub
+
+'Permet de gerer la selection de chambre par l'utilisateur. Pour eviter tout conflit, on commence
+'par mettre a Zero la variable Ordre(). Ensuite, on scrute l'etat de selection de chaque chambre,
+'-1 utilisee, 0 non utilisee. Si l'etat d'une chambre est a -1 son id (disponible dans Vanne(*,2))
+'est stocke dans Ordre(o). Le compteur o est ensuite incremente de 1 pour selectionner la case
+'suivante de Ordre().
+'On trouve ensuite des variables tampons evitant que l'utilisateur modifie les parametre lors du scan.
+' Les variable A font reference a de l'affichage, cette partie gere l'affichage "derniers parametres utilises"
+' dans RTMC.
+Sub Parametres
+
+  If nbChambre = 0
+    For i = 1 To 6
+      Ordre(i) = 0
+      If Chambres(i) = -1 Then
+        nbChambre = nbChambre+1
+        Ordre(C_o) = Vanne(i+1,2)
+        T_Ordre(i) = -1
+        C_o = C_o+1
+      Else
+        T_Ordre(i) = 0
+      EndIf
+    Next i
+  EndIf
+
+  'variables tampons
+  T_Cycle = Cycle
+  T_choixscan = choixscan
+  T_Calib = Calib
+  T_ScanCalib = ScanCalib
+  T_V_etalon = V_etalon
+
+  'gestion de "derniers parametres utilises"
+  A_choixscan = T_choixscan * 5
+
+  If T_Cycle = 1 Then
+    A_Cycle = "Cycle continu"
+  Else
+    A_Cycle = "Cycle unique"
+  EndIf
+
+  If T_Calib = 0 Then
+    A_Calib = "Apres cycle"
+  Else
+    A_Calib = "Apres chambre"
+  EndIf
+
+  If T_ScanCalib = 1 Then
+    A_ScanCalib = "Standard"
+  Else
+    A_ScanCalib = "Rapide"
+  EndIf
+
+EndSub
+
+'Reinitialise les parametres de l'interface
+Sub ClearParametres
+
+  nbChambre = 0
+  C_ch = 0
+  Marche = 0
+  C_o = 1
+  V_etalon = 0
+  choixscan = 1
+
+  For i = 1 To 6
+    Ordre(i) = 0
+    Chambres(i) = 0
+  Next i
+
+  A_Ch_Close = 1
+  A_Ch_Open = 1
+  Ch_Open_String = NAN
+  Fan_On_String = NAN
+  Fan_Off_String = NAN
+
+EndSub
+
+'Permet de se positionner sur les entrees de Zero et d'etalonnage de la vanne et de realiser les
+'scans associes.
+'Le deplacement suit le meme principe que RHome, une fois placer sur l'entree 7 on procede a un
+'Scan du Zero soit standard soit rapide puis on avance d'un pas pour faire la mem chose avec
+'le gaz etalon. CalibOn est la pour attester du statut de l'etalonnage et permet aussi
+'l'allumage du voyant.
+Sub Etalonnage
+
+  CalibOn = true
+  H_sol = NAN
+  Temp_sol = NAN
+  Ch_Temp = NAN
+  Ch_Pressure_hPa = NAN
+  Ch_Pressure_kPa = NAN
+
+  pos_Calib = 7 - VanneActu
+
+  For i = 1 To pos_Calib
+    Call PasVanne
+  Next i
+
+  'Standard
+  If T_ScanCalib = 1 AND Marche = -1 Then
+
+    For i = 1 To 2
+      Call MesurePicarro
+    Next i
+
+    Call PasVanne
+
+    For i = 1 To 2
+      Call MesurePicarro
+    Next i
+
+
+    Call PasVanne
+
+    'Rapide
+  ElseIf T_ScanCalib = 0 AND Marche = -1 Then
+
+    Call MesurePicarro
+
+    Call PasVanne
+
+    Call MesurePicarro
+
+    Call PasVanne
+
+  EndIf
+
+  CalibOn = false
+  VanneActu = 1
+
+'Partie affichage RTMC
+  If (Ordre(1) = 1 AND C_ch = 0) OR (C_ch = nbChambre AND Cycle = 0) Then
+    led_1 = -1
+  EndIf
+
+EndSub
+
+'DureeScan permet d'afficher le debut et la fin du scan en cours. Pour afficher l'heure de fin
+'il faut rajouter le temps de scan choisi, soit "choixscan" + 1 minute pour la purge.
+Sub DureeScan
+
+  Dh = Hour
+  Dmin = Minute
+  Dsec = Second
+
+  Fsec = Dsec + 10*T_choixscan
+
+  If Fsec > 59 Then
+    T_Fsec = Fsec
+    Fsec = Fsec MOD 60
+    Fmin = Dmin + (T_choixscan * 5) + (Nb_Tic_Purge * Temps_Tic_Purge/60 ) + ((T_Fsec-Fsec)/60)
+  Else
+    Fmin = Dmin + (T_choixscan * 5) + (Nb_Tic_Purge * Temps_Tic_Purge/60 )
+  EndIf
+
+
+  'Cette condition verifie que l'on ne passe pas a l'heure suivante (ex : Mesure de 10 minutes,
+  'D 11:53:20, si on rejoute seulement les 11 minutes on obtiendra F 11:63:20 ce qui n'est pas
+  'possible). Si c'est le cas on utilise le modulo 60 pour obtenir les minutes restantes au dessus d'une heure.
+  'Fmin prend alors cette valeur et Fh = Dh +1.
+  '(ex : avec les meme valeur que precedemment, D 11:53:20 donne F 12:04:20).
+  If Fmin > 59 Then
+    Fmin = Fmin MOD 60
+    Fh = Dh + 1
+  Else
+    Fh = Dh
+  EndIf
+
+EndSub
+
+'Pour recuperer les donnees de pression de la chambre on envoie la commande
+'"$B34CD". On place ensuite la chaine de caracteres dans la variable Pressure_String.
+'La chaine est toujours de la meme forme et le constructeur indique quels sont les renseignements
+'a recuperer a l'interieur. La fonction Mid est alors utilisee pour ne conserver que la donnee
+'de pression. C'est le meme principe pour la temperature mais la commande est "$B44CE".
+Sub MesureChambre
+
+  SerialOut(Port,"$B34CD"+CHR(13),"",1,100)
+  SerialIn(Pressure_String,Port,50,CHR(13),20)
+  Ch_Pressure_hPa = Mid(Pressure_String,4,5)
+  Ch_Pressure_kPa = Ch_Pressure_hPa / 10
+
+  SerialOut(Port,"$B44CE"+CHR(13),"",1,100)
+  SerialIn(Temp_String,Port,50,CHR(13),30)
+  Ch_Temp = Mid(Temp_String,4,4)
+
+EndSub
+
+'On commence par arreter le ventilateur grace a la commande "$B08CE", la boucle sert  verifier l'arret.
+'Ensuite on ordonne l'ouverture avec "$B05CB".
+Sub OuvertureChambre
+
+  If transportOk = false Then
+
+    SerialOut(Port,"$B08CE"+CHR(13),"",1,100)
+
+    While Fan_Off_String <> NAN AND Marche = -1
+      SerialIn(Fan_Off_String,Port,50,CHR(13),10)
+    Wend
+
+  EndIf
+
+  SerialOut(Port,"$B05CB"+CHR(13),"",1,100)
+
+EndSub
+
+'La commande "$B04CA" lance la fermeture. On verifie la fermeture en interrogeant les capteurs de positions
+'grace a "$B09CF" dans une boucle. Pour que la fermeture soit OK La reponse des capteurs doit etre "B091FD".
+'Par la suite on lance le ventilateur avec "$B07CD" et on passe a la suite que lorsqu'il est lance
+Sub FermetureChambre
+
+  SerialOut(Port,"$B04CA"+CHR(13),"",1,100)
+
+  While A_Ch_Close <> 0 AND Marche = -1
+    SerialOut(Port,"$B09CF"+CHR(13),"",1,100)
+    SerialIn(Ch_Close_String,Port,50,CHR(13),10)
+    A_Ch_Close = StrComp("B091FD"+CHR(13),Ch_Close_String)
+  Wend
+
+  If transport = 0 Then
+
+    SerialOut(Port,"$B07CD"+CHR(13),"",1,100)
+
+    While Fan_On_String <> NAN AND Marche = -1
+      SerialIn(Fan_On_String,Port,50,CHR(13),10)
+    Wend
+
+  EndIf
+
+EndSub
+
+'------------------------------------------Main Programme-----------------------------------
+
+SequentialMode
+'For i = 1 To 4
+SDMBeginPort(U1)
+
+BeginProg
+
+  Call initialisation
+
+  'Ouverture des ports series
+  SerialOpen (ComC1,9600,0,100,1000)
+  SerialOpen(32,9600,48,100,1000)
+  SerialOpen(33,9600,48,100,1000)
+  SerialOpen(34,9600,48,100,1000)
+  SerialOpen(35,9600,48,100,1000)
+  SerialOpen (ComC1,9600,0,100,1000)
+  'SerialOpen(36,9600,48,100,1000)
+  'SerialOpen(37,9600,48,100,1000)
+ Do 'Boucle principale
+
+    Do 'Boucle d'attente avant le lancement d'un cycle
+
+ 
+      'Reinitialise les parametres de cycle et retourne sur l'entree de la chambre 1. Dans le cas ou transport = -1
+      'on passe en mode transport et toutes les chambres se ferment.
+      If reboot = -1 OR transport = -1 Then
+
+        Call RHome
+        Call clearParametres
+        reboot = 0
+
+        If transport = -1 Then
+
+          '--------------------Partie non testee---------------------------
+
+          'Une fois les 6 chambres connectees, supprimer la ligne "Port = 32" et mettre en fonctionnement la boucle "For...Next"
+
+          For i = 1 To 6
+          Port = 31 + i
+          'Port = 32
+          Call FermetureChambre
+          Next i
+
+          transportOk = true
+          transport = 0
+
+        EndIf
+
+      EndIf
+
+      '------------------------------------------------------------------
+
+      'Verifie qu'au moins une chambre a ete selectionnee, si ce n'est pas le cas les cases de
+      'selection passent au rouge.
+      C_case = 6
+
+      For i = 1 To 6
+        If Chambres(i) = 0 Then
+          C_case = C_case-1
+        EndIf
+      Next i
+
+      If C_case = 0 Then
+        CaseOk = 0
+      Else
+        CaseOk = 1
+      EndIf
+
+      '----------------------------
+
+      'Impose les conditions de demarrage d'un cycle. Il est impossible de lancer un cycle si
+      'aucune chambre n'est selectionnee, si une valeur etalon entre 0 et 1000 n'a pas ete donnee
+      'et si le bouton Marche n'est pas enclenche. Si les chambres etaient en situation de transport
+      'elles commencent par toutes s'ouvrir.
+      If Marche = -1 AND CaseOk = 1 AND V_etalon > 0 AND V_etalon <= 1000 Then
+
+        Exit Do
+
+        '--------------------Partie non testee---------------------------
+
+        'Une fois les 6 chambres connectees, supprimer la ligne "Port = 32" et mettre en fonctionnement la boucle "For...Next"
+
+        If transportOk = true Then
+
+          For i = 1 To 6
+          Port = 31 + i
+          'Port = 32
+          Call OuvertureChambre
+          Next i
+
+          transportOk = false
+
+        EndIf
+
+      Else
+
+        Marche = 0
+
+      EndIf
+
+      '-----------------------------------------------------------------
+
+    Loop
+
+    'Prise en compte des parametre selectionnes par l'utilisateur
+    Call Parametres
+
+    'Un cycle commence toujours par une mise a zero et un etalonnage
+    Call Etalonnage
+
+    Do 'Boucle de cycle
+
+      While C_ch <> nbChambre AND Marche = -1
+
+        '---------------------------------
+
+        'Deplacement sur l'entree de vanne suivante
+        If Ordre(C_ch + 1) <> VanneActu AND Marche = -1 Then
+
+          T_vanne = VanneActu
+
+          For i = T_vanne To Ordre(C_ch + 1)-1
+            Call PasVanne
+          Next i
+
+        EndIf
+
+        '---------------------------------
+
+        'ouverture du port de la chambre
+        Port = 31 + VanneActu
+        'Port = 33
+
+        'Cycle de Mesure
+        Call FermetureChambre
+        Call TempsScan
+        Call OuvertureChambre
+
+        C_ch = C_ch + 1
+
+        'Etalonnage apres chaque chambre ou apres chaque cycle
+        If C_ch = nbChambre AND T_Calib = 0 Then
+          Call Etalonnage
+        ElseIf Calib = 1
+          Call Etalonnage
+        EndIf
+
+      Wend
+
+      'boucle de pause
+      If Marche = 0 AND reboot = 0 Then
+        Do
+          If (Marche = -1 AND reboot = 0) OR (Marche = 0 AND reboot = -1) Then
+            Exit Do
+          EndIf
+        Loop
+      EndIf
+
+      'cycle unique (0) ou continu (1)
+      If T_Cycle = 0 OR Marche = 0 Then
+        Exit Do
+      ElseIf T_Cycle = 1 AND C_ch = nbChambre
+        C_ch = 0
+      EndIf
+
+    Loop
+
+    If Cycle = 0 AND C_ch = nbChambre Then
+      Call ClearParametres
+    EndIf
+
+  Loop
+
+
+EndProg
+
+
